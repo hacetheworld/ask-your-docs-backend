@@ -68,5 +68,5 @@ router.post("/ask", async (req, res) => {
   const context = result.rows.map((r) => r.content).join("\n");
 
   // const answer = await askLLM(context, question);
-  res.json({ context });
+  res.json({ answer: context });
 });
