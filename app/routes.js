@@ -7,6 +7,7 @@ import { chunkText } from "./chunker.js";
 import { askLLM } from "./llm.js";
 // import { parsePDF } from "./pdf.js";
 import { embed } from "./localEmbedding.js";
+import { findSimilar, storeEmbedding } from "./cache.js";
 function toPgVector(array) {
   return `[${array.join(",")}]`;
 }
@@ -48,6 +49,19 @@ router.post("/ask", async (req, res) => {
   const { question } = req.body;
   const queryEmbedding = await embed(question);
 
+   const cached = await findSimilar(queryEmbedding);
+
+    if (cached) {
+      console.log("CACHE HIT");
+
+      return res.json({
+        source: "cache",
+        answer: cached,
+      });
+    }
+
+  console.log("CACHE MISS");
+
   const result = await pool.query(
     `
     SELECT content
@@ -68,5 +82,18 @@ router.post("/ask", async (req, res) => {
   const context = result.rows.map((r) => r.content).join("\n");
 
   // const answer = await askLLM(context, question);
+  // i dont have money to run this on actual llm but yes this is the right place the call would happens and it will return the result ....
+  // now either we return the result as it is or we check if it meets the standerd or not ...and then send it but again it depned on us ...
+  // here i am saving this answer if someone ask the same kind of question i can return from the cache ..
+  const id = Date.now();
+
+  await storeEmbedding(id, queryEmbedding, context);
+
+  return res.json({
+    source: "llm",
+    context,
+  });
+
+  
   res.json({ answer: context });
 });
